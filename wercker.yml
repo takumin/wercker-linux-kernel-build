@@ -10,7 +10,7 @@ build:
             debug "linux-$KERNEL_VERSION.tar.xz found in cache"
           else
             debug "linux-$KERNEL_VERSION.tar.xz not found in cache, will download"
-            curl -o "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz"
+            wget -O "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz"
           fi
     - script:
         name: extract
