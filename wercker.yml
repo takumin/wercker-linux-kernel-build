@@ -1,0 +1,13 @@
+box:
+  id:  takumi/linux-kernel-build
+  cmd: /bin/sh
+build:
+  steps:
+    - script:
+        name: echo
+        code: |
+          echo "hello world!"
+deploy:
+  steps:
+    - internal/docker-push:
+      disable-sync: true
