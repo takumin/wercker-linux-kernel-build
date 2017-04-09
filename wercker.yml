@@ -7,20 +7,30 @@ build:
         name: download
         code: |
           if [ -f "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" ]; then
-            debug "linux-$KERNEL_VERSION.tar.xz found in cache"
+            debug "linux $KERNEL_VERSION archive found in cache"
           else
-            debug "linux-$KERNEL_VERSION.tar.xz not found in cache, will download"
+            debug "linux $KERNEL_VERSION archive not found in cache, will download"
             wget -O "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz"
           fi
     - script:
         name: extract
         code: |
           if [ -d "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION" ]; then
-            debug "linux-$KERNEL_VERSION found in cache"
+            debug "linux $KERNEL_VERSION directory found in cache"
           else
-            debug "linux-$KERNEL_VERSION not found in cache, will extract"
-            tar -xf "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" -C "$WERCKER_CACHE_DIR"
+            debug "linux $KERNEL_VERSION directory not found in cache, will extract"
+            tar -xvf "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" -C "$WERCKER_CACHE_DIR"
           fi
+    - script:
+        name: defconfig
+        code: |
+          debug "linux $KERNEL_VERSION default configuration"
+          make -C "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION" O="/tmp/linux-$KERNEL_VERSION" defconfig
+    - script:
+        name: compile
+        code: |
+          debug "linux $KERNEL_VERSION compile"
+          make -C "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION" -j "$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 2)" O="/tmp/linux-$KERNEL_VERSION"
 deploy:
   steps:
     - internal/docker-push:
