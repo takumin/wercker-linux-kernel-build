@@ -4,25 +4,52 @@ box:
 build:
   steps:
     - script:
-        name: download
+        name: check-releases
         code: |
-          if [ -f "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" ]; then
-            debug "linux $KERNEL_VERSION archive found in cache"
+          wget -qO "releases.json" "https://www.kernel.org/releases.json"
+          export KERNEL_VERSION="$(cat releases.json | jq -r '.latest_stable.version')"
+          export KERNEL_SOURCE_URL="$(cat releases.json | jq -r '.latest_stable.version as $version | .releases[] | select(.version == $version) | .source')"
+          export KERNEL_SOURCE_FILE="$(echo $KERNEL_SOURCE_URL | sed -e 's@.*/@@')"
+          export KERNEL_SIGN_URL="$(cat releases.json | jq -r '.latest_stable.version as $version | .releases[] | select(.version == $version) | .pgp')"
+          export KERNEL_SIGN_FILE="$(echo $KERNEL_SIGN_URL | sed -e 's@.*/@@')"
+          debug "KERNEL_VERSION=\"$KERNEL_VERSION\""
+          debug "KERNEL_SOURCE_URL=\"$KERNEL_SOURCE_URL\""
+          debug "KERNEL_SOURCE_FILE=\"$KERNEL_SOURCE_FILE\""
+          debug "KERNEL_SIGN_URL=\"$KERNEL_SIGN_URL\""
+          debug "KERNEL_SIGN_FILE=\"$KERNEL_SIGN_FILE\""
+    - script:
+        name: download-source
+        code: |
+          if [ -f "$WERCKER_CACHE_DIR/$KERNEL_SOURCE_FILE" ]; then
+            debug "linux $KERNEL_VERSION source found in cache"
           else
-            debug "linux $KERNEL_VERSION archive not found in cache, will download"
-            wget -O "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz"
+            debug "linux $KERNEL_VERSION source not found in cache, will download"
+            wget -qO "$WERCKER_CACHE_DIR/$KERNEL_SOURCE_FILE" "$KERNEL_SOURCE_URL"
           fi
     - script:
-        name: extract
+        name: download-sign
+        code: |
+          if [ -f "$WERCKER_CACHE_DIR/$KERNEL_SIGN_FILE" ]; then
+            debug "linux $KERNEL_VERSION sign found in cache"
+          else
+            debug "linux $KERNEL_VERSION sign not found in cache, will download"
+            wget -qO "$WERCKER_CACHE_DIR/$KERNEL_SIGN_FILE" "$KERNEL_SIGN_URL"
+          fi
+    - script:
+        name: check-sign
+        code: |
+          xz -cd "$WERCKER_CACHE_DIR/$KERNEL_SOURCE_FILE" | gpg --verify "$WERCKER_CACHE_DIR/$KERNEL_SIGN_FILE" -
+    - script:
+        name: extract-source
         code: |
           if [ -d "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION" ]; then
             debug "linux $KERNEL_VERSION directory found in cache"
           else
             debug "linux $KERNEL_VERSION directory not found in cache, will extract"
-            tar -xvf "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION.tar.xz" -C "$WERCKER_CACHE_DIR"
+            tar -xvf "$WERCKER_CACHE_DIR/$KERNEL_SOURCE_FILE" -C "$WERCKER_CACHE_DIR"
           fi
     - script:
-        name: defconfig
+        name: default-config
         code: |
           debug "linux $KERNEL_VERSION default configuration"
           make -C "$WERCKER_CACHE_DIR/linux-$KERNEL_VERSION" O="/tmp/linux-$KERNEL_VERSION" defconfig
